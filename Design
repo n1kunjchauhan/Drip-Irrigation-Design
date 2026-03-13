@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrated Drip Calculator</title>
+    <style>
+        :root { --text-secondary: #a0a0a0; --accent-color: #00e676; --output-bg: #d9ead3; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; min-height: 100vh; }
+        
+        /* Container for JS Masonry */
+        .app-container {
+            position: relative;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: #fff;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border: 1px solid #e1e1e1;
+            
+            /* Absolute positioning for JS Layout */
+            position: absolute; 
+            width: 350px; /* Fixed width for masonry calc */
+            box-sizing: border-box;
+            
+            /* Initial state */
+            top: 0;
+            left: 0;
+            transition: top 0.3s, left 0.3s;
+        }
+
+        /* Responsive Widths handled by JS, but max-width limits container */
+        @media (max-width: 768px) {
+            .card { width: 100%; position: relative; margin-bottom: 20px; }
+            .app-container { display: block; }
+        }
+
+        .card-title { margin: 0 0 15px 0; font-size: 1.5rem; font-weight: bold; text-align: center; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
+        .card-badge { position: absolute; top: 10px; right: 10px; background: #e0e0e0; color: #555; font-size: 0.8rem; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+        .input-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .control-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .control-group > div { flex: 1; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; color: #555; flex: 1; }
+        .input-container { display: flex; align-items: center; width: 180px; }
+        select, input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; box-sizing: border-box; text-align: center; }
+        select:focus, input:focus { border-color: #007bff; outline: none; }
+        .highlight-input { background-color: #f0f8ff; border-color: #b0d4ff; }
+        .unit { margin-left: 8px; font-size: 13px; color: #666; width: 40px; }
+        .output-box { background-color: #eef2f5; color: #2c3e50; font-weight: bold; border: 1px solid #dde2e5; }
+        .unit-select { width: 80px; margin-left: 5px; padding: 5px; font-size: 0.9rem; }
+        .small-result { font-size: 12px; text-align: right; margin-top: 2px; color: #666; padding-right: 50px; }
+        .centered-text { text-align: center; font-size: 0.9rem; color: #666; margin-top: 5px; }
+        .results-section { background-color: #eef2f5; border-radius: 10px; padding: 15px; margin-top: 20px; }
+        .result-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #dde2e5; }
+        .result-row:last-child { border-bottom: none; }
+        .result-label { color: #666; font-size: 0.95rem; }
+        .result-value { font-weight: 700; color: #2c3e50; font-size: 1.1rem; }
+        .result-value.highlight { color: #007bff; }
+        h3 { display: none; }
+
+        /* ===== BOX 19 STYLES ===== */
+        #card-19 {
+            width: calc(100% - 40px) !important;
+        }
+        .valve-table-wrapper { overflow-x: auto; margin-top: 10px; }
+        .valve-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .valve-table th {
+            background: #2c3e50;
+            color: #fff;
+            padding: 7px 5px;
+            text-align: center;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+        .valve-table td {
+            padding: 5px 4px;
+            border: 1px solid #dde2e5;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .valve-table tr:nth-child(even) td { background: #f8f9fa; }
+        .valve-table input[type="number"], .valve-table input[type="text"], .valve-table select {
+            width: 100%;
+            min-width: 60px;
+            padding: 4px 3px;
+            font-size: 0.78rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .valve-table .out-cell {
+            background: #e8f5e9;
+            font-weight: bold;
+            color: #1b5e20;
+            font-size: 0.82rem;
+        }
+        .valve-table .out-cell.warn { background: #fff3e0; color: #e65100; }
+        .valve-row-label {
+            background: #3498db !important;
+            color: #fff !important;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .box19-common { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 12px; align-items: flex-end; }
+        .box19-common > div { flex: 1; min-width: 120px; }
+        .box19-common label { font-size: 0.85rem; margin-bottom: 3px; }
+        .btn-add-valve {
+            background: #28a745;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .btn-add-valve:hover { background: #218838; }
+        .btn-remove-valve {
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .summary-section {
+            background: #f0f4f8;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 18px;
+            border: 1px solid #cdd6e0;
+        }
+        .summary-section h4 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 1rem;
+            border-bottom: 1px solid #cdd6e0;
+            padding-bottom: 6px;
+            display: block;
+        }
+        .summary-grid { display: flex; gap: 20px; flex-wrap: wrap; }
+        .summary-col { flex: 1; min-width: 200px; }
+        .summary-col h5 { margin: 0 0 6px 0; color: #555; font-size: 0.85rem; display: block; }
+        .summary-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #cdd6e0; font-size: 0.82rem; }
+        .summary-item:last-child { border-bottom: none; }
+        .summary-item .s-key { color: #555; }
+        .summary-item .s-val { font-weight: bold; color: #1a237e; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+
+    <div class="card" id="card-1">
+        <div class="card-badge">#1</div>
+        <div class="card-title">1. Crop Factor (Kc)</div>
+        <div class="input-row"><label>Category</label><div class="input-container"><select id="category" onchange="updateInterface()"><option value="vegetable">Vegetable / Field</option><option value="fruit">Fruit / Permanent</option></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Crop</label><div class="input-container"><select id="crop" onchange="calculateKc()"></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Stage</label><div class="input-container"><select id="stage" onchange="calculateKc()"></select></div><span class="unit"></span></div>
+        <div class="input-row"><label style="font-weight:bold;">Kc Result</label><div class="input-container"><input type="text" id="kc_result" class="output-box" readonly></div><span class="unit"></span></div>
+    </div>
+
+    <div class="card" id="card-2">
+        <div class="card-badge">#2</div>
+        <div class="card-title">2. Water Needed</div>
+        <div class="input-row"><label>Crop Area</label><div class="input-container"><input type="number" step="any" id="area" value="0.18" oninput="calculateVolume()"></div><span class="unit">m²</span></div>
+        <div class="input-row"><label>Pan Evaporation</label><div class="input-container"><input type="number" step="any" id="pan_evap" value="8" oninput="calculateVolume()"></div><span class="unit">mm</span></div>
+        <div class="input-row"><label>Pan Coefficient</label><div class="input-container"><input type="number" step="any" id="pan_coeff" value="0.7" oninput="calculateVolume()"></div><span class="unit"></span></div>
+        <div class="input-row"><label>Crop Coeff (Kc)</label><div class="input-container"><input type="number" step="any" id="crop_coeff" value="0.8" oninput="calculateVolume()"></div><span class="unit"></span></div>
+        <div class="input-row"><label>% Wetted Area</label><div class="input-container"><input type="number" step="any" id="wetted_area" value="75" oninput="calculateVolume()"></div><span class="unit">%</span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="input-row"><label style="font-weight:bold; color: #28a745;">Required Volume</label><div class="input-container"><input type="text" id="final_volume" class="output-box" readonly></div><span class="unit">L/Day</span></div>
+        <div class="small-result" id="mm_result">3.51 mm</div>
+    </div>
+
+    <div class="card" id="card-3">
+        <div class="card-badge">#3</div>
+        <div class="card-title">3. Total System Flow</div>
+        
+        <div class="control-group" style="background-color: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+            <div><label style="font-size:0.85rem; color:#007bff;">L (m)</label><input type="number" id="field_len" placeholder="Length" oninput="calculateAreaFromDim()"></div>
+            <div><label style="font-size:0.85rem; color:#007bff;">W (m)</label><input type="number" id="field_wid" placeholder="Width" oninput="calculateAreaFromDim()"></div>
+        </div>
+        <div class="input-row"><label>Total Area</label><div class="input-container"><input type="number" step="any" id="field_area" value="3600" oninput="calculateSystemFlow()"></div><span class="unit">m²</span></div>
+        <div class="input-row"><label>Bed Spacing</label><div class="input-container"><input type="number" step="any" id="bed_spacing" value="2" oninput="calculateSystemFlow()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>No. of Laterals</label><div class="input-container"><input type="number" step="any" id="laterals_per_bed" value="2" oninput="calculateSystemFlow()"></div><span class="unit">Nos</span></div>
+        <div class="input-row"><label>Dripper Spacing</label><div class="input-container"><input type="number" step="any" id="dripper_spacing" value="0.3" oninput="calculateSystemFlow()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Dripper Discharge</label><div class="input-container"><input type="number" step="any" id="dripper_discharge" value="2" oninput="calculateSystemFlow()"></div><span class="unit">L/hr</span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="input-row"><label>Total Lateral Length</label><div class="input-container"><div id="total_lateral_length" style="color: #666; width: 100%; text-align: center;">2500 m</div></div><span class="unit"></span></div>
+        <div class="input-row"><label style="font-weight:bold;">Total Drippers</label><div class="input-container"><input type="text" id="total_drippers" class="output-box" readonly></div><span class="unit">Qty</span></div>
+        <div class="input-row"><label style="font-weight:bold; color: #28a745;">Total Flow</label><div class="input-container" style="width: 250px;"><input type="text" id="total_flow" class="output-box" readonly style="width: 60%;"><select id="flow_unit" class="unit-select" onchange="calculateSystemFlow()"><option value="m3h">m³/hr</option><option value="lph">LPH</option><option value="lpm">LPM</option><option value="lps">LPS</option></select></div><span class="unit"></span></div>
+    </div>
+
+    <div class="card" id="card-4">
+        <div class="card-badge">#4</div>
+        <div class="card-title">4. Available Pump Flow</div>
+        <div class="input-row"><label>Pump HP</label><div class="input-container"><input type="number" step="any" id="pump_hp_input" value="5" oninput="calculateAvailableFlow()"></div><span class="unit">HP</span></div>
+        <div class="input-row"><label>Total Head</label><div class="input-container"><input type="number" step="any" id="pump_head_input" value="45" oninput="calculateAvailableFlow()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Efficiency</label><div class="input-container"><input type="number" step="any" id="pump_eff_input" value="60" oninput="calculateAvailableFlow()"></div><span class="unit">%</span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="input-row"><label style="font-weight:bold; color: #28a745;">Flow (LPS)</label><div class="input-container"><input type="text" id="avail_flow_lps" class="output-box" readonly></div><span class="unit">lps</span></div>
+        <div class="input-row"><label style="font-weight:bold; color: #28a745;">Flow (m³/hr)</label><div class="input-container"><input type="text" id="avail_flow_m3h" class="output-box" readonly></div><span class="unit">m³/hr</span></div>
+    </div>
+
+    <div class="card" id="card-5">
+        <div class="card-badge">#5</div>
+        <div class="card-title">5. Pump HP Required</div>
+        <div class="input-row"><label>Required Flow</label><div class="input-container"><input type="number" step="any" id="req_flow" value="18.00" oninput="calculateRequiredHP()"></div><span class="unit">m³/hr</span></div>
+        <div class="input-row"><label>Total Head</label><div class="input-container"><input type="number" step="any" id="req_head" value="45" oninput="calculateRequiredHP()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Efficiency</label><div class="input-container"><input type="number" step="any" id="req_eff" value="60" oninput="calculateRequiredHP()"></div><span class="unit">%</span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="input-row" style="justify-content: flex-end;"><div style="text-align:right; font-size:12px; margin-bottom:5px; color:#666;">Required: <span id="calc_hp_val" style="font-weight:bold; color:#000;">2.22</span> HP</div></div>
+        <div class="input-row"><label style="font-weight:bold; color:#28a745;">Standard Pump</label><div class="input-container"><input type="text" id="final_hp" class="output-box" readonly></div><span class="unit">HP</span></div>
+        <div class="centered-text"><span id="final_kw">2 kW</span></div>
+    </div>
+
+    <div class="card" id="card-6">
+        <div class="card-badge">#6</div>
+        <div class="card-title">6. Lateral Design</div>
+        <div class="control-group"><div><label>Lateral Size</label><select class="nominal-dia" onchange="updateID(this)"><option value="12">12 mm</option><option value="16" selected>16 mm</option><option value="20">20 mm</option><option value="custom">Custom</option></select></div><div><label>Class</label><select class="pipe-class" onchange="updateID(this)"><option value="1">Class 1</option><option value="2" selected>Class 2</option><option value="3">Class 3</option></select></div></div>
+        <div class="control-group"><div><label>Inner ID (mm)</label><input type="number" class="id-mm highlight-input" step="0.1" oninput="calculate(this)"></div><div><label>Length (m)</label><input type="number" class="length-m" value="69" oninput="calculate(this)"></div></div>
+        <div class="control-group"><div><label>Spacing (m)</label><input type="number" class="spacing-m" value="0.3" step="0.01" oninput="calculate(this)"></div><div><label>Dripper Q (lph)</label><input type="number" class="discharge-lph" value="2.0" step="0.1" oninput="calculate(this)"></div></div>
+        
+        <div class="control-group">
+            <div><label style="font-size:0.85rem;">Drip/Plant</label><input type="number" class="drippers-per-plant" value="1" oninput="calculate(this)"></div>
+            <div><label style="font-size:0.85rem;">Roughness</label><input type="number" class="roughness" value="140" oninput="calculate(this)"></div>
+        </div>
+        <div class="control-group">
+            <div><label style="font-size:0.85rem;">Outlet Factor</label><input type="number" class="outlet-factor" value="0.4" step="0.01" oninput="calculate(this)"></div>
+            <div><label>Pressure (End)</label><input type="number" class="pressure-m" id="lat_pressure_input" value="10.0" oninput="calculate(this)"></div>
+        </div>
+
+        <div class="control-group"><div><label>Total Q Unit</label><select class="flow-unit" onchange="calculate(this)"><option value="lph">lph</option><option value="m3hr">m³/hr</option><option value="lps">lps</option><option value="lpm">lpm</option><option value="gpm">gpm (US)</option></select></div><div><label>Velocity Unit</label><select class="velocity-unit" onchange="calculate(this)"><option value="m/s">m/s</option><option value="ft/s">ft/s</option></select></div></div>
+        
+        <div class="results-section">
+            <div class="result-row"><span class="result-label">Number of Drippers</span><span class="result-value res-drippers">-</span></div>
+            <div class="result-row"><span class="result-label">Total Flow (Q)</span><span class="result-value res-discharge">-</span></div>
+            <div class="result-row"><span class="result-label">Velocity (V)</span><span class="result-value highlight res-velocity">-</span></div>
+            <div class="result-row"><span class="result-label">Head Loss (Hf)</span><span class="result-value highlight res-headloss" id="lat_res_headloss">-</span></div>
+            <div class="result-row"><span class="result-label">Inlet Pressure</span><span class="result-value res-pressure" id="lat_res_pressure">-</span></div>
+        </div>
+    </div>
+
+    <div class="card" id="card-7">
+        <div class="card-badge">#7</div>
+        <div class="card-title">7. Submain Head Loss</div>
+        <div class="input-row"><label>Type of Pipe</label><div class="input-container"><select id="sub_type" onchange="updateSubmainOptions()"><option value="agri">Agri PVC (IS 4985)</option><option value="upvc">uPVC (ASTM)</option><option value="hdpe">HDPE (PE 100)</option></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Pressure Rating</label><div class="input-container"><select id="sub_class" onchange="updateSubmainSizeList()"></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Pipe Size</label><div class="input-container"><select id="sub_size" onchange="updateSubmainID()"></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Inside Dia (ID)</label><div class="input-container"><input type="number" id="sub_id" class="highlight-input" step="0.1" oninput="calculateSubmain()"></div><span class="unit">mm</span></div>
+        <div class="input-row"><label>Length</label><div class="input-container"><input type="number" id="sub_length" value="50" oninput="calculateSubmain()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Flow Rate</label><div class="input-container" style="width: 250px;"><input type="number" id="sub_flow" value="3.33" step="0.01" oninput="calculateSubmain()" style="width: 60%;"><select id="sub_flow_unit" class="unit-select" onchange="calculateSubmain()"><option value="lps">LPS</option><option value="lpm">LPM</option><option value="m3h">m³/hr</option></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Roughness (C)</label><div class="input-container"><input type="number" id="sub_roughness" value="150" oninput="calculateSubmain()"></div><span class="unit"></span></div>
+        <div class="input-row"><label>Outlet Factor</label><div class="input-container"><input type="number" id="sub_outlet_factor" value="0.36" step="0.01" oninput="calculateSubmain()"></div><span class="unit"></span></div>
+        <div class="input-row"><label>Lat. Inlet Press.</label><div class="input-container"><input type="number" id="lat_inlet_press" value="10" oninput="calculateSubmain()" placeholder="Optional"></div><span class="unit">m</span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="results-section">
+            <div class="result-row"><span class="result-label">Velocity</span><span class="result-value" id="sub_velocity">-</span></div>
+            <div class="result-row"><span class="result-label">Head Loss</span><span class="result-value highlight" id="sub_head_loss">-</span></div>
+            <div class="result-row"><span class="result-label">Inlet Pressure</span><span class="result-value" id="sub_total_pressure">-</span></div>
+        </div>
+    </div>
+
+    <div class="card" id="card-8">
+        <div class="card-badge">#8</div>
+        <div class="card-title">8. Mainline Head Loss</div>
+        <div class="input-row"><label>Type of Pipe</label><div class="input-container"><select id="main_type" onchange="updateMainOptions()"><option value="agri">Agri PVC (IS 4985)</option><option value="upvc">uPVC (ASTM)</option><option value="hdpe">HDPE (PE 100)</option></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Pressure Rating</label><div class="input-container"><select id="main_class" onchange="updateMainSizeList()"></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Pipe Size</label><div class="input-container"><select id="main_size" onchange="updateMainID()"></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Inside Dia (ID)</label><div class="input-container"><input type="number" id="main_id" class="highlight-input" step="0.1" oninput="calculateMainline()"></div><span class="unit">mm</span></div>
+        <div class="input-row"><label>Length</label><div class="input-container"><input type="number" id="main_length" value="100" oninput="calculateMainline()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Flow Rate</label><div class="input-container" style="width: 250px;"><input type="number" id="main_flow" value="3.87" step="0.01" oninput="calculateMainline()" style="width: 60%;"><select id="main_flow_unit" class="unit-select" onchange="calculateMainline()"><option value="lps">LPS</option><option value="lpm">LPM</option><option value="m3h">m³/hr</option></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Roughness (C)</label><div class="input-container"><input type="number" id="main_roughness" value="150" oninput="calculateMainline()"></div><span class="unit"></span></div>
+        <div class="input-row"><label>Submain Inlet P.</label><div class="input-container"><input type="number" id="sub_inlet_press_link" value="10" oninput="calculateMainline()" placeholder="Auto"></div><span class="unit">m</span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="results-section">
+            <div class="result-row"><span class="result-label">Velocity</span><span class="result-value" id="main_velocity">-</span></div>
+            <div class="result-row"><span class="result-label">Head Loss</span><span class="result-value highlight" id="main_head_loss">-</span></div>
+            <div class="result-row"><span class="result-label">Inlet Pressure</span><span class="result-value" id="main_total_pressure">-</span></div>
+        </div>
+    </div>
+
+    <div class="card" id="card-9">
+        <div class="card-badge">#9</div>
+        <div class="card-title">9. Time of Irrigation</div>
+        <div class="input-row"><label style="color: #666; font-size: 0.85rem;">Bed Spacing (m)</label><div class="input-container"><input type="text" id="pr_bed_spacing" class="output-box" readonly></div></div>
+        <div class="input-row"><label style="color: #666; font-size: 0.85rem;">Dripper Spacing (m)</label><div class="input-container"><input type="text" id="pr_drip_spacing" class="output-box" readonly></div></div>
+        <div class="input-row"><label style="color: #666; font-size: 0.85rem;">Laterals / Bed</label><div class="input-container"><input type="text" id="pr_lat_per_bed" class="output-box" readonly></div></div>
+        <div class="input-row"><label style="color: #666; font-size: 0.85rem;">Discharge (lph)</label><div class="input-container"><input type="text" id="pr_discharge" class="output-box" readonly></div></div>
+        <div class="input-row"><label style="font-weight:bold;">Peak Water Req.</label><div class="input-container"><input type="number" id="peak_water_req" value="5" step="0.1" oninput="calculatePrecipitation()" class="highlight-input"></div><span class="unit">mm</span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="results-section">
+            <div class="result-row"><span class="result-label">Precipitation Rate</span><span class="result-value highlight" id="pr_result">-</span></div>
+            <div class="centered-text" style="margin-bottom:10px;">mm/hr</div>
+            <div class="result-row"><span class="result-label">Time Required</span><div style="display:flex; align-items:center; gap:5px;"><span class="result-value" id="irrig_time">-</span><select id="time_unit" class="unit-select" style="width:auto; padding:2px 5px; height:auto; font-size:0.8rem;" onchange="calculatePrecipitation()"><option value="hrmin">Hr : Min</option><option value="min">Total Min</option><option value="hr">Total Hr</option></select></div></div>
+        </div>
+    </div>
+
+    <div class="card" id="card-9b">
+        <div class="card-badge">10</div>
+        <div class="card-title">10. Peak Water Lookup</div>
+        <div class="input-row"><label>Category</label><div class="input-container"><select id="peak_category" onchange="updatePeakCrops()"></select></div></div>
+        <div class="input-row"><label>Crop</label><div class="input-container"><select id="peak_crop" onchange="updatePeakValue()"></select></div></div>
+        <div class="result-row" style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:8px;">
+            <span class="result-label">Peak Req. Range</span>
+            <span class="result-value" id="peak_range_display" style="color:#007bff;">-</span>
+        </div>
+        <div style="margin-top:15px; text-align:center;">
+            <button onclick="applyPeakValue()" style="background:var(--accent-color); color:#fff; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold; width:100%;">Apply Max Value to Card 9</button>
+        </div>
+    </div>
+
+    <div class="card" id="card-10">
+        <div class="card-badge">#11</div>
+        <div class="card-title">11. Darcy-Weisbach Calc</div>
+        <div class="input-row"><label>Inside Dia (ID)</label><div class="input-container"><input type="number" id="dw_id" value="50" step="0.1" oninput="calculateDarcy()"></div><span class="unit">mm</span></div>
+        <div class="input-row"><label>Length</label><div class="input-container"><input type="number" id="dw_length" value="100" oninput="calculateDarcy()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Flow Rate</label><div class="input-container" style="width: 250px;"><input type="number" id="dw_flow" value="10" step="0.1" oninput="calculateDarcy()" style="width: 60%;"><select id="dw_flow_unit" class="unit-select" onchange="calculateDarcy()"><option value="m3h">m³/hr</option><option value="lps">LPS</option><option value="lpm">LPM</option></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Friction Factor (f)</label><div class="input-container"><input type="number" id="dw_f" value="0.02" step="0.001" oninput="calculateDarcy()"></div><span class="unit"></span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="results-section">
+            <div class="result-row"><span class="result-label">Velocity</span><span class="result-value" id="dw_velocity">-</span></div>
+            <div class="result-row"><span class="result-label">Head Loss (Hf)</span><span class="result-value highlight" id="dw_head_loss">-</span></div>
+        </div>
+    </div>
+
+    <div class="card" id="card-11">
+        <div class="card-badge">#12</div>
+        <div class="card-title">12. Type of Flow</div>
+        <div class="input-row"><label>Inside Dia (ID)</label><div class="input-container"><input type="number" id="re_id" value="50" step="0.1" oninput="calculateReynolds()"></div><span class="unit">mm</span></div>
+        <div class="input-row"><label>Flow Rate</label><div class="input-container" style="width: 250px;"><input type="number" id="re_flow" value="10" step="0.1" oninput="calculateReynolds()" style="width: 60%;"><select id="re_flow_unit" class="unit-select" onchange="calculateReynolds()"><option value="m3h">m³/hr</option><option value="lps">LPS</option><option value="lpm">LPM</option></select></div><span class="unit"></span></div>
+        <div class="input-row"><label>Water Temp.</label><div class="input-container"><input type="number" id="re_temp" value="20" oninput="updateFluids()"></div><span class="unit">°C</span></div>
+        <div class="input-row"><label style="font-size:0.85rem; color:#666;">Density (ρ)</label><div class="input-container"><input type="number" id="re_density" value="998.2" step="0.1" oninput="calculateReynolds()"></div><span class="unit" style="font-size:0.75rem;">kg/m³</span></div>
+        <div class="input-row"><label style="font-size:0.85rem; color:#666;">Viscosity (μ)</label><div class="input-container"><input type="number" id="re_visc" value="1.002" step="0.001" oninput="calculateReynolds()"></div><span class="unit" style="font-size:0.75rem;">cP</span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="results-section">
+            <div class="result-row"><span class="result-label">Reynolds No.</span><span class="result-value" id="re_number">-</span></div>
+            <div class="result-row"><span class="result-label">Flow Type</span><span class="result-value highlight" id="re_type">-</span></div>
+        </div>
+    </div>
+
+    <div class="card" id="card-12">
+        <div class="card-badge">#13</div>
+        <div class="card-title">13. Pressure Converter</div>
+        <div class="input-row"><label>Head (m)</label><div class="input-container"><input type="number" id="conv_p_m" placeholder="m" oninput="convertPressure('m')"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Bar</label><div class="input-container"><input type="number" id="conv_p_bar" placeholder="bar" oninput="convertPressure('bar')"></div><span class="unit">bar</span></div>
+        <div class="input-row"><label>kg/cm²</label><div class="input-container"><input type="number" id="conv_p_kg" placeholder="kg/cm²" oninput="convertPressure('kg')"></div><span class="unit">kg/cm²</span></div>
+        <div class="input-row"><label>PSI</label><div class="input-container"><input type="number" id="conv_p_psi" placeholder="psi" oninput="convertPressure('psi')"></div><span class="unit">psi</span></div>
+    </div>
+
+    <div class="card" id="card-13">
+        <div class="card-badge">#14</div>
+        <div class="card-title">14. Flow Converter</div>
+        <div class="input-row"><label>m³/hr</label><div class="input-container"><input type="number" id="conv_f_m3h" placeholder="m³/hr" oninput="convertFlow('m3h')"></div><span class="unit">m³/h</span></div>
+        <div class="input-row"><label>Liters/sec (LPS)</label><div class="input-container"><input type="number" id="conv_f_lps" placeholder="LPS" oninput="convertFlow('lps')"></div><span class="unit">LPS</span></div>
+        <div class="input-row"><label>Liters/min (LPM)</label><div class="input-container"><input type="number" id="conv_f_lpm" placeholder="LPM" oninput="convertFlow('lpm')"></div><span class="unit">LPM</span></div>
+        <div class="input-row"><label>GPM (US)</label><div class="input-container"><input type="number" id="conv_f_gpm" placeholder="GPM" oninput="convertFlow('gpm')"></div><span class="unit">GPM</span></div>
+    </div>
+
+    <div class="card" id="card-14">
+        <div class="card-badge">#15</div>
+        <div class="card-title">15. Velocity Calc</div>
+        <div class="input-row"><label>Pipe ID</label><div class="input-container"><input type="number" id="vel_id" value="50" oninput="calcVelocity()"></div><span class="unit">mm</span></div>
+        <div class="input-row"><label>Flow Rate</label><div class="input-container" style="width: 250px;"><input type="number" id="vel_flow" value="10" oninput="calcVelocity()" style="width: 60%;"><select id="vel_flow_unit" class="unit-select" onchange="calcVelocity()"><option value="m3h">m³/hr</option><option value="lps">LPS</option><option value="lpm">LPM</option><option value="gpm">GPM</option></select></div><span class="unit"></span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="results-section">
+            <div class="result-row"><span class="result-label">Velocity (m/s)</span><span class="result-value highlight" id="vel_res_ms">-</span></div>
+            <div class="result-row"><span class="result-label">Velocity (ft/s)</span><span class="result-value" id="vel_res_fs">-</span></div>
+        </div>
+    </div>
+
+    <div class="card" id="card-15">
+        <div class="card-badge">#16</div>
+        <div class="card-title">16. Total Head Loss</div>
+        <div class="input-row"><label>Suction Head</label><div class="input-container"><input type="number" id="th_suction" value="5" step="0.5" oninput="calculateTotalHead()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Sand Filter</label><div class="input-container"><input type="number" id="th_sand" value="5" step="0.5" oninput="calculateTotalHead()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Hydrocyclone</label><div class="input-container"><input type="number" id="th_hydro" value="0" step="0.5" oninput="calculateTotalHead()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Disk Filter</label><div class="input-container"><input type="number" id="th_disk" value="3" step="0.5" oninput="calculateTotalHead()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Venturi Head</label><div class="input-container"><input type="number" id="th_venturi" value="0" step="0.5" oninput="calculateTotalHead()"></div><span class="unit">m</span></div>
+        <div class="input-row"><label>Fittings Loss</label><div class="input-container"><input type="number" id="th_fittings" value="2" step="0.5" oninput="calculateTotalHead()"></div><span class="unit">m</span></div>
+        
+        <div class="input-row"><label style="font-size:0.8rem; color:#666;">Mainline Inlet P.</label><div class="input-container"><input type="text" id="th_main_inlet" class="output-box" readonly></div><span class="unit">m</span></div>
+        
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="input-row"><label style="font-weight:bold; color: #28a745;">Total Head Req.</label><div class="input-container"><input type="text" id="th_total_result" class="output-box" readonly></div><span class="unit">m</span></div>
+    </div>
+
+    <div class="card" id="card-16">
+        <div class="card-badge">#17</div>
+        <div class="card-title">17. Uniformity Check (Auto)</div>
+        <div class="input-row"><label style="color:#666; font-size:0.85rem;">Lat. Inlet Pressure</label><div class="input-container"><input type="text" id="uni_inlet_p" class="output-box" readonly></div><span class="unit">m</span></div>
+        <div class="input-row"><label style="color:#666; font-size:0.85rem;">Lat. End Pressure</label><div class="input-container"><input type="text" id="uni_end_p" class="output-box" readonly></div><span class="unit">m</span></div>
+        <div class="input-row"><label style="color:#666; font-size:0.85rem;">Flow Rate Diff (%)</label><div class="input-container"><input type="text" id="uni_q_var" class="output-box" readonly></div><span class="unit">%</span></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="results-section">
+            <div class="result-row"><span class="result-label">P Variation</span><span class="result-value" id="uni_var">-</span></div>
+            <div class="result-row"><span class="result-label">Est. EU %</span><span class="result-value highlight" id="uni_eu">-</span></div>
+        </div>
+    </div>
+
+    <div class="card" id="card-17">
+        <div class="card-badge">#18</div>
+        <div class="card-title">18. Fogging Calculator</div>
+        <div class="input-row"><label>Discharge (LPH)</label><div class="input-container"><input type="number" id="fog_discharge" value="7.0" step="0.1" oninput="calculateFogging()"></div><span class="unit">L/hr</span></div>
+        <div class="control-group"><div><label>Fogger Spacing</label><input type="number" id="fog_spacing_l" value="2.0" step="0.1" oninput="calculateFogging()"></div><div><label>Lateral Spacing</label><input type="number" id="fog_spacing_w" value="2.0" step="0.1" oninput="calculateFogging()"></div></div>
+        
+        <div class="control-group"><div><label>No. of Foggers</label><input type="number" id="fog_count" value="100" oninput="calculateFogging()"></div><div><label>Pulse Duration</label><input type="number" id="fog_pulse" value="30" oninput="calculateFogging()"></div></div>
+        
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        
+        <div class="results-section">
+            <div class="result-row"><span class="result-label">Precipitation Rate</span><span class="result-value highlight" id="fog_result_mm">-</span></div>
+            <div class="centered-text" style="margin-bottom:10px;">mm/hr</div>
+            
+            <div class="result-row"><span class="result-label">Water per Pulse</span><span class="result-value" id="fog_pulse_vol">-</span></div>
+            <div class="centered-text">Liters / Pulse</div>
+        </div>
+    </div>
+
+    <!-- ===== BOX 19: VALVE PIPE SIZING ===== -->
+    <div class="card" id="card-19">
+        <div class="card-badge">#19</div>
+        <div class="card-title">19. Valve Pipe Sizing</div>
+
+        <!-- Common Inputs Row 1 -->
+        <div class="box19-common">
+            <div>
+                <label>Roughness (C) — All Valves</label>
+                <input type="number" id="v19_roughness" value="150" oninput="calcBox19()">
+            </div>
+            <div>
+                <label>Outlet Factor — All Valves</label>
+                <input type="number" id="v19_outlet_factor" value="0.36" step="0.01" oninput="calcBox19()">
+            </div>
+            <div>
+                <label>Fitting Side</label>
+                <select id="v19_fitting_side" onchange="calcBox19()">
+                    <option value="1">One Side</option>
+                    <option value="2">Two Side</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Extra Material % — Three simple inputs inside one box -->
+        <div style="background:#fff8e1; border:1px solid #ffe082; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+            <div style="font-size:0.8rem; font-weight:700; color:#e65100; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.03em;">Extra Material %</div>
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:120px; background:#fff; border:1px solid #ffe082; border-radius:7px; padding:8px 10px; text-align:center;">
+                    <div style="font-size:0.75rem; color:#888; margin-bottom:5px; font-weight:600;">Pipe</div>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
+                        <input type="number" id="v19_pipe_extra_pct" value="5" min="0" step="0.5" oninput="calcBox19()" style="width:65px; padding:5px; font-size:0.95rem; border-radius:6px; border:1px solid #f9a825; text-align:center; background:#fffde7; font-weight:700; color:#e65100;">
+                        <span style="font-size:0.85rem; color:#888;">%</span>
+                    </div>
+                </div>
+                <div style="flex:1; min-width:120px; background:#fff; border:1px solid #ffe082; border-radius:7px; padding:8px 10px; text-align:center;">
+                    <div style="font-size:0.75rem; color:#888; margin-bottom:5px; font-weight:600;">Fittings</div>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
+                        <input type="number" id="v19_fit_extra_pct" value="5" min="0" step="0.5" oninput="calcBox19()" style="width:65px; padding:5px; font-size:0.95rem; border-radius:6px; border:1px solid #f9a825; text-align:center; background:#fffde7; font-weight:700; color:#e65100;">
+                        <span style="font-size:0.85rem; color:#888;">%</span>
+                    </div>
+                </div>
+                <div style="flex:1; min-width:120px; background:#fff; border:1px solid #ffe082; border-radius:7px; padding:8px 10px; text-align:center;">
+                    <div style="font-size:0.75rem; color:#888; margin-bottom:5px; font-weight:600;">Lateral</div>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
+                        <input type="number" id="v19_lat_extra_pct" value="5" min="0" step="0.5" oninput="calcBox19()" style="width:65px; padding:5px; font-size:0.95rem; border-radius:6px; border:1px solid #f9a825; text-align:center; background:#fffde7; font-weight:700; color:#e65100;">
+                        <span style="font-size:0.85rem; color:#888;">%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="valve-table-wrapper">
+            <table class="valve-table" id="v19_table">
+                <thead>
+                    <tr>
+                        <th>Valve</th>
+                        <th>Area (m²)</th>
+                        <th>Pipe Type</th>
+                        <th>Press. Rating</th>
+                        <th>Pipe Size</th>
+                        <th>ID (mm)<br><small style="font-weight:normal;font-size:0.68rem;">dropdown/edit</small></th>
+                        <th>Length (m)</th>
+                        <th>Valve Flow<br>(m³/hr)</th>
+                        <th>Velocity<br>(m/s)</th>
+                        <th>Head Loss<br>(m)</th>
+                        <th>Fitting Sets<br>(nos)</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="v19_tbody">
+                </tbody>
+            </table>
+        </div>
+
+        <button class="btn-add-valve" onclick="addValveRow()">+ Add Valve</button>
+
+        <!-- Summary Section -->
+        <div class="summary-section" id="v19_summary">
+            <h4>Summary</h4>
+            <div class="summary-grid">
+                <div class="summary-col" style="min-width:260px;">
+                    <h5>Pipe Length Summary — incl. Extra Material (rounded up to 6 m multiples)</h5>
+                    <div id="v19_pipe_summary">—</div>
+                </div>
+                <div class="summary-col" style="min-width:200px;">
+                    <h5>Total Fitting Sets (incl. Extra Material)</h5>
+                    <div id="v19_fitting_summary">—</div>
+                    <div style="margin-top:12px;">
+                        <h5>Total Valve Area &amp; Lateral Length</h5>
+                        <div id="v19_area_lateral_summary">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- CONVERTER LOGIC ---
+    
+    // Pressure
+    function convertPressure(source) {
+        let val = 0;
+        if(source === 'm') val = parseFloat(document.getElementById('conv_p_m').value);
+        else if(source === 'bar') val = parseFloat(document.getElementById('conv_p_bar').value) / 0.0980665;
+        else if(source === 'kg') val = parseFloat(document.getElementById('conv_p_kg').value) / 0.1; 
+        else if(source === 'psi') val = parseFloat(document.getElementById('conv_p_psi').value) / 1.42233;
+        
+        if(isNaN(val)) return;
+
+        const m = val;
+        const bar = val * 0.0980665;
+        const kg = val * 0.1;
+        const psi = val * 1.42233;
+        
+        if(source !== 'm') document.getElementById('conv_p_m').value = parseFloat(m.toFixed(3));
+        if(source !== 'bar') document.getElementById('conv_p_bar').value = parseFloat(bar.toFixed(3));
+        if(source !== 'kg') document.getElementById('conv_p_kg').value = parseFloat(kg.toFixed(3));
+        if(source !== 'psi') document.getElementById('conv_p_psi').value = parseFloat(psi.toFixed(3));
+    }
+
+    // Flow
+    function convertFlow(source) {
+        let val_m3h = 0;
+        if(source === 'm3h') val_m3h = parseFloat(document.getElementById('conv_f_m3h').value);
+        else if(source === 'lps') val_m3h = parseFloat(document.getElementById('conv_f_lps').value) * 3.6;
+        else if(source === 'lpm') val_m3h = parseFloat(document.getElementById('conv_f_lpm').value) * 0.06;
+        else if(source === 'gpm') val_m3h = parseFloat(document.getElementById('conv_f_gpm').value) / 4.40287;
+        
+        if(isNaN(val_m3h)) return;
+
+        const m3h = val_m3h;
+        const lps = val_m3h / 3.6;
+        const lpm = val_m3h / 0.06;
+        const gpm = val_m3h * 4.40287;
+        
+        if(source !== 'm3h') document.getElementById('conv_f_m3h').value = parseFloat(m3h.toFixed(3));
+        if(source !== 'lps') document.getElementById('conv_f_lps').value = parseFloat(lps.toFixed(3));
+        if(source !== 'lpm') document.getElementById('conv_f_lpm').value = parseFloat(lpm.toFixed(3));
+        if(source !== 'gpm') document.getElementById('conv_f_gpm').value = parseFloat(gpm.toFixed(3));
+    }
+    
+    // Velocity Calc
+    function calcVelocity() {
+        const id_mm = parseFloat(document.getElementById('vel_id').value) || 0;
+        const flow = parseFloat(document.getElementById('vel_flow').value) || 0;
+        const unit = document.getElementById('vel_flow_unit').value;
+        
+        if(id_mm <= 0) return;
+        
+        let q_m3s = 0;
+        if(unit === 'm3h') q_m3s = flow / 3600.0;
+        if(unit === 'lps') q_m3s = flow / 1000.0;
+        if(unit === 'lpm') q_m3s = flow / 60000.0;
+        if(unit === 'gpm') q_m3s = flow / 15850.3;
+        
+        const area = Math.PI * Math.pow((id_mm/1000.0)/2, 2);
+        
+        if(area > 0) {
+            const v_ms = q_m3s / area;
+            const v_fs = v_ms * 3.28084;
+            document.getElementById('vel_res_ms').innerText = v_ms.toFixed(2) + " m/s";
+            document.getElementById('vel_res_fs').innerText = v_fs.toFixed(2) + " ft/s";
+        }
+    }
+
+    // --- TOTAL HEAD CALCULATION (Card 16) ---
+    function calculateTotalHead() {
+        const suction = parseFloat(document.getElementById('th_suction').value) || 0;
+        const sand = parseFloat(document.getElementById('th_sand').value) || 0;
+        const hydro = parseFloat(document.getElementById('th_hydro').value) || 0;
+        const disk = parseFloat(document.getElementById('th_disk').value) || 0;
+        const venturi = parseFloat(document.getElementById('th_venturi').value) || 0;
+        const fittings = parseFloat(document.getElementById('th_fittings').value) || 0;
+        const mainInlet = parseFloat(document.getElementById('th_main_inlet').value) || 0;
+        
+        const total = suction + sand + hydro + disk + venturi + fittings + mainInlet;
+        
+        document.getElementById('th_total_result').value = total.toFixed(2);
+    }
+    
+    // --- UNIFORMITY CALCULATION (Card 17 Auto) ---
+    function calculateUniformity(pInlet, pEnd) {
+        if(!pInlet || !pEnd || pInlet <= 0) return;
+        
+        const hf = pInlet - pEnd;
+        
+        // Populate Readonly fields in Card 17
+        document.getElementById('uni_inlet_p').value = pInlet.toFixed(2);
+        document.getElementById('uni_end_p').value = pEnd.toFixed(2);
+        
+        // Pressure Variation
+        const pMax = pInlet;
+        const pMin = pEnd;
+        const pVar = ((pMax - pMin) / pMax) * 100;
+        
+        // Flow Variation Calc (Based on x = 0.5)
+        const qVar = (1 - Math.pow((pMin / pMax), 0.5)) * 100;
+        
+        document.getElementById('uni_q_var').value = qVar.toFixed(1);
+
+        const pAvg = pMin + (0.75 * hf);
+        
+        let eu = 0;
+        if(pAvg > 0) {
+            eu = 100 * (Math.pow(pMin, 0.5) / Math.pow(pAvg, 0.5));
+        }
+        
+        document.getElementById('uni_var').innerText = pVar.toFixed(1) + "%";
+        document.getElementById('uni_eu').innerText = eu.toFixed(1) + "%";
+    }
+
+    // --- FOGGING CALCULATION (Card 18) ---
+    function calculateFogging() {
+        const discharge = parseFloat(document.getElementById('fog_discharge').value) || 0;
+        const spacingL = parseFloat(document.getElementById('fog_spacing_l').value) || 0;
+        const spacingW = parseFloat(document.getElementById('fog_spacing_w').value) || 0;
+        const count = parseFloat(document.getElementById('fog_count').value) || 0;
+        const pulse = parseFloat(document.getElementById('fog_pulse').value) || 0;
+
+        let rate = 0;
+        if (spacingL > 0 && spacingW > 0) {
+            rate = discharge / (spacingL * spacingW);
+        }
+        document.getElementById('fog_result_mm').innerText = rate.toFixed(2);
+
+        const totalLPH = count * discharge;
+        const litersPerSec = totalLPH / 3600.0;
+        const pulseVol = litersPerSec * pulse;
+
+        document.getElementById('fog_pulse_vol').innerText = pulseVol.toFixed(2);
+    }
+
+    // --- AREA FROM DIMENSIONS (NEW) ---
+    function calculateAreaFromDim() {
+        const l = parseFloat(document.getElementById('field_len').value) || 0;
+        const w = parseFloat(document.getElementById('field_wid').value) || 0;
+        if(l > 0 && w > 0) {
+            const area = l * w;
+            document.getElementById('field_area').value = area;
+            calculateSystemFlow();
+        }
+    }
+
+    // --- CARD 9B DATA ---
+    const peakData = {
+      "Vegetables": {
+        "Tomato": "6.0 - 8.0", "Chilli": "6.0 - 7.0", "Capsicum": "6.0 - 7.0", "Brinjal": "6.0 - 7.0", "Cucumber": "5.0 - 6.0", "Bottle Gourd": "5.0 - 6.0", "Bitter Gourd": "5.0 - 6.0", "Ridge Gourd": "4.5 - 5.5", "Okra": "4.5 - 5.5", "Potato": "4.5 - 5.5", "Onion": "5.0 - 6.0", "Cabbage/Cauli": "4.0 - 5.0", "Beans": "4.0 - 5.0", "Peas": "3.5 - 4.5", "Carrot/Radish": "4.0 - 5.0", "Leafy Veg": "4.0 - 5.0", "Pumpkin": "5.0 - 6.0", "Drumstick": "4.0 - 5.0"
+      },
+      "Fruits": {
+        "Banana": "6.0 - 8.0", "Papaya": "6.0 - 7.0", "Grapes": "5.0 - 7.0", "Pomegranate": "5.0 - 6.5", "Watermelon": "5.5 - 6.5", "Muskmelon": "5.5 - 6.5", "Citrus": "4.5 - 6.0", "Mango": "3.0 - 5.0", "Guava": "4.5 - 5.5", "Coconut": "5.0 - 7.0", "Sapota": "4.5 - 5.5", "Pineapple": "4.0 - 5.0", "Custard Apple": "3.5 - 4.5", "Ber": "3.0 - 4.0", "Amla": "3.0 - 4.0", "Strawberry": "3.5 - 4.5", "Litchi": "4.5 - 5.5", "Fig": "3.5 - 4.5"
+      },
+      "Field Crops": {
+        "Sugarcane": "7.0 - 9.0", "Rice (Drip)": "8.0 - 10.0", "Cotton": "6.0 - 8.0", "Maize": "5.5 - 7.0", "Turmeric": "4.5 - 5.5", "Ginger": "4.5 - 5.5", "Groundnut": "4.5 - 5.5", "Soybean": "4.5 - 6.0", "Wheat": "4.0 - 5.0", "Pulses": "3.5 - 5.0", "Sunflower": "5.0 - 6.0", "Mulberry": "4.5 - 5.5"
+      },
+      "Flowers/Plantation": {
+        "Rose (Open)": "4.0 - 6.0", "Rose (Poly)": "2.5 - 3.5", "Marigold": "4.0 - 5.0", "Jasmine": "4.0 - 5.0", "Tuberose": "4.0 - 5.0", "Gerbera": "4.0 - 5.0", "Arecanut": "3.5 - 4.5", "Black Pepper": "3.0 - 4.0", "Cardamom": "3.0 - 4.0", "Coffee": "4.0 - 5.0", "Tea": "4.0 - 5.0", "Betel Vine": "3.0 - 4.0"
+      }
+    };
+
+    // --- CARD 9B LOGIC ---
+    function initPeakData() {
+        const catSelect = document.getElementById('peak_category');
+        catSelect.innerHTML = "";
+        Object.keys(peakData).forEach(cat => {
+            const opt = document.createElement("option");
+            opt.value = cat;
+            opt.innerText = cat;
+            catSelect.appendChild(opt);
+        });
+        updatePeakCrops();
+    }
+
+    function updatePeakCrops() {
+        const cat = document.getElementById('peak_category').value;
+        const cropSelect = document.getElementById('peak_crop');
+        const crops = peakData[cat];
+        
+        cropSelect.innerHTML = "";
+        Object.keys(crops).sort().forEach(crop => {
+            const opt = document.createElement("option");
+            opt.value = crop;
+            opt.innerText = crop;
+            cropSelect.appendChild(opt);
+        });
+        updatePeakValue();
+    }
+
+    function updatePeakValue() {
+        const cat = document.getElementById('peak_category').value;
+        const crop = document.getElementById('peak_crop').value;
+        const range = peakData[cat][crop];
+        document.getElementById('peak_range_display').innerText = range + " mm/day";
+    }
+
+    function applyPeakValue() {
+        const cat = document.getElementById('peak_category').value;
+        const crop = document.getElementById('peak_crop').value;
+        const range = peakData[cat][crop];
+        
+        const parts = range.split('-');
+        let maxVal = 0;
+        if(parts.length > 1) {
+            maxVal = parseFloat(parts[1]);
+        } else {
+            maxVal = parseFloat(parts[0]);
+        }
+        
+        const target = document.getElementById('peak_water_req');
+        if(target) {
+            target.value = maxVal;
+            target.style.backgroundColor = "#fff3cd";
+            setTimeout(() => target.style.backgroundColor = "", 500);
+            calculatePrecipitation();
+        }
+    }
+
+    // --- ADVANCED CALCULATOR LOGIC ---
+    
+    // DATA
+    const vegetableData = {"Bean (dry)": {"initial": 0.35, "development": 0.75, "mid": 1.0, "late": 0.5}, "Cabbage": {"initial": 0.45, "development": 0.75, "mid": 1.0, "late": 0.9}, "Carrot": {"initial": 0.45, "development": 0.75, "mid": 1.0, "late": 0.9}, "Cotton": {"initial": 0.45, "development": 0.75, "mid": 1.0, "late": 0.75}, "Cucumber": {"initial": 0.45, "development": 0.7, "mid": 0.9, "late": 0.75}, "Eggplant": {"initial": 0.45, "development": 0.75, "mid": 1.0, "late": 0.8}, "Groundnut": {"initial": 0.45, "development": 0.75, "mid": 1.0, "late": 0.75}, "Lettuce": {"initial": 0.45, "development": 0.6, "mid": 1.0, "late": 0.9}, "Maize (sweet)": {"initial": 0.4, "development": 0.8, "mid": 1.0, "late": 1.0}, "Maize (grain)": {"initial": 0.4, "development": 0.75, "mid": 1.0, "late": 0.7}, "Melon": {"initial": 0.45, "development": 0.75, "mid": 1.0, "late": 0.75}, "Onion (green)": {"initial": 0.5, "development": 0.7, "mid": 1.0, "late": 1.0}, "Onion (dry)": {"initial": 0.5, "development": 0.75, "mid": 1.0, "late": 0.85}, "Pea (fresh)": {"initial": 0.45, "development": 0.8, "mid": 1.0, "late": 1.0}, "Pepper": {"initial": 0.35, "development": 0.75, "mid": 1.0, "late": 0.9}, "Potato": {"initial": 0.45, "development": 0.75, "mid": 1.0, "late": 0.75}, "Spinach": {"initial": 0.45, "development": 0.6, "mid": 1.0, "late": 0.9}, "Squash": {"initial": 0.45, "development": 0.7, "mid": 0.9, "late": 0.75}, "Sorghum": {"initial": 0.35, "development": 0.75, "mid": 1.1, "late": 0.65}, "Sugar beet": {"initial": 0.45, "development": 0.8, "mid": 1.0, "late": 0.8}, "Sugar cane": {"initial": 0.45, "development": 0.85, "mid": 1.0, "late": 0.65}, "Sunflower": {"initial": 0.35, "development": 0.75, "mid": 1.0, "late": 0.55}, "Tomato": {"initial": 0.45, "development": 0.75, "mid": 1.0, "late": 0.8}};
+    const fruitData = {"Banana": {"young": 0.5, "mature": 1.1}, "Citrus": {"young": 0.3, "mature": 0.65}, "Apple, cherry, walnut": {"young": 0.45, "mature": 0.85}, "Almond, apricot, pear, peach, pecan, plum": {"young": 0.4, "mature": 0.75}, "Grape, palm tree": {"young": 0.7, "mature": 0.7}, "Olive": {"young": 0.55, "mature": 0.55}, "Alfalfa": {"young": 0.35, "mature": 1.0}};
+    
+    // ELEMENTS (Global References)
+    const categorySelect = document.getElementById("category");
+    const cropSelect = document.getElementById("crop");
+    const stageSelect = document.getElementById("stage");
+    const kcOutput = document.getElementById("kc_result");
+    
+    const areaInput = document.getElementById("area");
+    const panEvapInput = document.getElementById("pan_evap");
+    const panCoeffInput = document.getElementById("pan_coeff");
+    const cropCoeffInput = document.getElementById("crop_coeff");
+    const wettedAreaInput = document.getElementById("wetted_area");
+    const finalVolumeOutput = document.getElementById("final_volume");
+    const mmResultOutput = document.getElementById("mm_result");
+    
+    const fieldAreaInput = document.getElementById("field_area");
+    const bedSpacingInput = document.getElementById("bed_spacing");
+    const dripperSpacingInput = document.getElementById("dripper_spacing");
+    const lateralsPerBedInput = document.getElementById("laterals_per_bed");
+    const dripperDischargeInput = document.getElementById("dripper_discharge");
+    const totalDrippersOutput = document.getElementById("total_drippers");
+    const totalFlowOutput = document.getElementById("total_flow");
+    const flowUnitSelect = document.getElementById("flow_unit");
+    const totalLateralLengthOutput = document.getElementById("total_lateral_length");
+    
+    const pumpHpInput = document.getElementById("pump_hp_input");
+    const pumpHeadInput = document.getElementById("pump_head_input");
+    const pumpEffInput = document.getElementById("pump_eff_input");
+    const availFlowLps = document.getElementById("avail_flow_lps");
+    const availFlowM3h = document.getElementById("avail_flow_m3h");
+    
+    const reqFlowInput = document.getElementById("req_flow");
+    const reqHeadInput = document.getElementById("req_head");
+    const reqEffInput = document.getElementById("req_eff");
+    const calcHpVal = document.getElementById("calc_hp_val");
+    const finalHpOutput = document.getElementById("final_hp");
+    const finalKwOutput = document.getElementById("final_kw");
+
+    // LOGIC FUNCTIONS 1-5
+    function updateInterface() {
+        const category = categorySelect.value;
+        const currentData = (category === 'vegetable') ? vegetableData : fruitData;
+        cropSelect.innerHTML = "";
+        const crops = Object.keys(currentData).sort(); 
+        crops.forEach(crop => {
+            const option = document.createElement("option");
+            option.value = crop;
+            option.textContent = crop;
+            cropSelect.appendChild(option);
+        });
+        stageSelect.innerHTML = "";
+        if (category === 'vegetable') {
+            addOption(stageSelect, "initial", "Initial");
+            addOption(stageSelect, "development", "Crop Development");
+            addOption(stageSelect, "mid", "Mid-Season");
+            addOption(stageSelect, "late", "Late Season");
+        } else {
+            addOption(stageSelect, "young", "Young / Non-Bearing");
+            addOption(stageSelect, "mature", "Mature / Bearing");
+        }
+        cropSelect.selectedIndex = 0;
+        calculateKc();
+    }
+    
+    function calculateKc() {
+        const category = categorySelect.value;
+        const cropName = cropSelect.value;
+        const stage = stageSelect.value;
+        const currentData = (category === 'vegetable') ? vegetableData : fruitData;
+        if (currentData[cropName] && currentData[cropName][stage] !== undefined) {
+            const val = currentData[cropName][stage];
+            kcOutput.value = val;
+            if(cropCoeffInput) cropCoeffInput.value = val;
+        } else {
+            kcOutput.value = "0.00";
+        }
+        calculateVolume();
+    }
+
+    function addOption(selectElement, value, text) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = text;
+        selectElement.appendChild(option);
+    }
+
+    function calculateVolume() {
+        const area = parseFloat(areaInput.value) || 0;
+        const panEvap = parseFloat(panEvapInput.value) || 0;
+        const panCoeff = parseFloat(panCoeffInput.value) || 0;
+        const kc = parseFloat(cropCoeffInput.value) || 0;
+        const wettedPercent = parseFloat(wettedAreaInput.value) || 0;
+        const etc_mm = panEvap * panCoeff * kc * (wettedPercent / 100);
+        const volume = etc_mm * area;
+        finalVolumeOutput.value = volume.toFixed(2);
+        if(mmResultOutput) mmResultOutput.innerText = etc_mm.toFixed(5) + " mm";
+    }
+
+    function calculateSystemFlow() {
+        const area = parseFloat(fieldAreaInput.value) || 0;
+        const bedSpacing = parseFloat(bedSpacingInput.value) || 1;
+        const latPerBed = parseFloat(lateralsPerBedInput.value) || 1;
+        const dripSpacing = parseFloat(dripperSpacingInput.value) || 1;
+        const discharge = parseFloat(dripperDischargeInput.value) || 0;
+        const totalLat = (area / bedSpacing) * latPerBed;
+        totalLateralLengthOutput.innerText = Math.round(totalLat) + " m";
+        const totalDrippers = Math.ceil(totalLat / dripSpacing);
+        totalDrippersOutput.value = totalDrippers;
+        const flowLPH = totalDrippers * discharge;
+        const unit = flowUnitSelect.value;
+        let displayFlow = flowLPH;
+        if(unit === 'm3h') displayFlow = flowLPH / 1000;
+        if(unit === 'lpm') displayFlow = flowLPH / 60;
+        if(unit === 'lps') displayFlow = flowLPH / 3600;
+        totalFlowOutput.value = displayFlow.toFixed(2);
+        
+        // Update Card 9 (Precipitation)
+        calculatePrecipitation();
+        // Update Box 19 (in case it uses box3 values)
+        calcBox19();
+    }
+
+    function calculatePrecipitation() {
+        const bedS = parseFloat(document.getElementById('bed_spacing').value) || 1;
+        const dripS = parseFloat(document.getElementById('dripper_spacing').value) || 1;
+        const latN = parseFloat(document.getElementById('laterals_per_bed').value) || 1;
+        const q = parseFloat(document.getElementById('dripper_discharge').value) || 0;
+        
+        // Mirror inputs to Card 9
+        document.getElementById('pr_bed_spacing').value = bedS;
+        document.getElementById('pr_drip_spacing').value = dripS;
+        document.getElementById('pr_lat_per_bed').value = latN;
+        document.getElementById('pr_discharge').value = q;
+        
+        // Precipitation Rate
+        let pr = 0;
+        if(bedS > 0 && dripS > 0) {
+            pr = (q * latN) / (bedS * dripS); // mm/hr
+            document.getElementById('pr_result').innerText = pr.toFixed(2);
+        } else {
+            document.getElementById('pr_result').innerText = "0.00";
+        }
+        
+        // Time Calculation
+        const peakReq = parseFloat(document.getElementById('peak_water_req').value) || 0;
+        const unit = document.getElementById('time_unit').value;
+        
+        if (pr > 0 && peakReq > 0) {
+            const timeHrs = peakReq / pr;
+            
+            if (unit === 'min') {
+                document.getElementById('irrig_time').innerText = Math.round(timeHrs * 60) + " min";
+            } else if (unit === 'hr') {
+                document.getElementById('irrig_time').innerText = timeHrs.toFixed(2) + " hr";
+            } else {
+                const hrs = Math.floor(timeHrs);
+                const mins = Math.round((timeHrs - hrs) * 60);
+                document.getElementById('irrig_time').innerText = `${hrs} hr ${mins} min`;
+            }
+        } else {
+            document.getElementById('irrig_time').innerText = "-";
+        }
+    }
+
+    function calculateAvailableFlow() {
+        const hp = parseFloat(pumpHpInput.value) || 0;
+        const head = parseFloat(pumpHeadInput.value) || 1;
+        const eff = (parseFloat(pumpEffInput.value) || 60) / 100;
+        const q_lps = (hp * 75 * eff) / head;
+        availFlowLps.value = q_lps.toFixed(2);
+        availFlowM3h.value = (q_lps * 3.6).toFixed(2);
+    }
+
+    function calculateRequiredHP() {
+        const flowM3h = parseFloat(reqFlowInput.value) || 0;
+        const head = parseFloat(reqHeadInput.value) || 0;
+        const eff = (parseFloat(reqEffInput.value) || 60) / 100;
+        const flowLps = flowM3h / 3.6;
+        const hp = (flowLps * head) / (75 * eff);
+        if(calcHpVal) calcHpVal.innerText = hp.toFixed(2);
+        
+        const marketSizes = [0.5, 1.0, 1.5, 2.0, 3.0, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, 25.0, 30.0];
+        let recommended = marketSizes[marketSizes.length - 1];
+        for (let size of marketSizes) {
+            if (size >= hp) {
+                recommended = size;
+                break;
+            }
+        }
+        if (hp > marketSizes[marketSizes.length - 1]) recommended = Math.ceil(hp);
+        finalHpOutput.value = recommended;
+        if(finalKwOutput) finalKwOutput.innerText = (recommended * 0.746).toFixed(2) + " kW";
+    }
+
+    // --- CARD 6: LATERAL ---
+    const pipeData = {
+        "12": { "1": 11.1, "2": 10.7, "3": 10.2 },
+        "16": { "1": 14.9, "2": 13.8, "3": 13.9 },
+        "20": { "1": 18.5, "2": 18.0, "3": 17.4 }
+    };
+
+    function updateID(element) {
+        const card = element.closest('.card');
+        const nominal = card.querySelector('.nominal-dia').value;
+        const pClass = card.querySelector('.pipe-class').value;
+        const idInput = card.querySelector('.id-mm');
+        const classSelect = card.querySelector('.pipe-class');
+        if (nominal === "custom") {
+            classSelect.disabled = true;
+            idInput.focus();
+        } else {
+            classSelect.disabled = false;
+            if (pipeData[nominal] && pipeData[nominal][pClass]) {
+                idInput.value = pipeData[nominal][pClass];
+                calculate(element); 
+            }
+        }
+    }
+
+    function calculate(element) {
+        const card = element.closest('.card');
+        const getVal = (selector) => parseFloat(card.querySelector(selector).value);
+        const id_mm = getVal('.id-mm');
+        const length_m = getVal('.length-m');
+        const spacing_m = getVal('.spacing-m');
+        const discharge_lph = getVal('.discharge-lph');
+        const pressure_m = getVal('.pressure-m');
+        
+        const drippers_per_plant = getVal('.drippers-per-plant') || 1; 
+
+        const vel_unit = card.querySelector('.velocity-unit').value;
+        const flow_unit = card.querySelector('.flow-unit').value;
+        
+        const C = getVal('.roughness') || 140; 
+        const F = getVal('.outlet-factor') || 0.4;
+        const K = 1.21e10; 
+
+        if (!id_mm || !length_m || !spacing_m || !discharge_lph) return;
+
+        const num_positions = length_m / spacing_m;
+        const total_drippers_count = num_positions * drippers_per_plant;
+        const total_q_lph = total_drippers_count * discharge_lph;
+        
+        const q_lps = total_q_lph / 3600.0;
+        const q_m3s = q_lps / 1000.0;
+
+        let display_q = 0;
+        let flow_suffix = "";
+        switch(flow_unit) {
+            case "m3hr": display_q = total_q_lph / 1000.0; flow_suffix = " m³/hr"; break;
+            case "lps": display_q = total_q_lph / 3600.0; flow_suffix = " lps"; break;
+            case "lpm": display_q = total_q_lph / 60.0; flow_suffix = " lpm"; break;
+            case "gpm": display_q = total_q_lph / 227.1247; flow_suffix = " gpm"; break;
+            default: display_q = total_q_lph; flow_suffix = " lph";
+        }
+
+        const id_m = id_mm / 1000.0;
+        const area_m2 = Math.PI * Math.pow((id_m / 2.0), 2);
+        let velocity = q_m3s / area_m2;
+        let vel_str = (vel_unit === "ft/s") ? (velocity * 3.28084).toFixed(2) + " ft/s" : velocity.toFixed(2) + " m/s";
+
+        let head_loss = 0;
+        if (id_mm > 0 && C > 0) {
+            const term_q = Math.pow((q_lps / C), 1.852);
+            const term_d = Math.pow(id_mm, -4.87);
+            head_loss = F * length_m * K * term_q * term_d;
+        }
+
+        const total_pressure = pressure_m + head_loss;
+
+        card.querySelector('.res-drippers').innerText = total_drippers_count.toFixed(0);
+        card.querySelector('.res-discharge').innerText = display_q.toFixed(2) + flow_suffix;
+        card.querySelector('.res-velocity').innerText = vel_str;
+        card.querySelector('.res-headloss').innerText = head_loss.toFixed(2) + " m";
+        card.querySelector('.res-pressure').innerText = total_pressure.toFixed(2) + " m";
+        
+        const subInput = document.getElementById('lat_inlet_press');
+        if(subInput) {
+            subInput.value = total_pressure.toFixed(2);
+            calculateSubmain(); 
+        }
+        
+        calculateUniformity(total_pressure, pressure_m);
+    }
+
+    const submainData = {"agri": {"4kg": {"40": 38.4, "50": 48.0, "63": 60.0, "75": 71.4, "90": 85.8, "110": 105.0, "125": 119.2, "140": 133.6, "160": 152.6, "180": 171.6, "200": 190.8, "225": 214.6, "250": 238.6, "280": 267.2, "315": 300.6, "355": 338.8}, "6kg": {"40": 37.2, "50": 46.6, "63": 58.6, "75": 69.8, "90": 83.8, "110": 102.6, "125": 116.4, "140": 130.4, "160": 149.2, "180": 167.8, "200": 186.4, "225": 209.8, "250": 233.0, "280": 261.0, "315": 293.6, "355": 330.8}}, "upvc": {"sch40": {"40": 40.8, "50": 52.5, "65": 62.7, "80": 77.9, "100": 102.3, "125": 128.2, "150": 154.1, "200": 202.7, "250": 254.5, "300": 303.2, "350": 333.3}, "sch80": {"40": 38.1, "50": 49.3, "65": 59.0, "80": 73.7, "100": 97.2, "125": 122.3, "150": 146.3, "200": 193.7, "250": 242.9, "300": 288.9, "350": 317.5}}, "hdpe": {"pn4": {"40": 38.0, "50": 47.5, "63": 59.9, "75": 71.3, "90": 85.6, "110": 104.6, "125": 118.9, "140": 133.2, "160": 152.2, "180": 171.2, "200": 190.2, "225": 214.0, "250": 237.8, "280": 266.3, "315": 299.6, "355": 337.7}, "pn6": {"40": 36.9, "50": 46.2, "63": 58.2, "75": 69.2, "90": 83.1, "110": 101.5, "125": 115.4, "140": 129.2, "160": 147.7, "180": 166.2, "200": 184.6, "225": 207.7, "250": 230.8, "280": 258.5, "315": 290.8, "355": 327.7}}};
+    const pipeDB = submainData;
+
+    // --- CARD 7: SUBMAIN LOGIC ---
+    function updateSubmainOptions() {
+        populatePipeOptions('sub_type', 'sub_class', 'sub_size', updateSubmainSizeList);
+    }
+    function updateSubmainSizeList() {
+        populateSizeList('sub_type', 'sub_class', 'sub_size', updateSubmainID);
+    }
+    function updateSubmainID() {
+        updatePipeID('sub_type', 'sub_class', 'sub_size', 'sub_id', calculateSubmain);
+    }
+    function calculateSubmain() {
+        const id_mm = parseFloat(document.getElementById('sub_id').value) || 0;
+        const length = parseFloat(document.getElementById('sub_length').value) || 0;
+        const flowVal = parseFloat(document.getElementById('sub_flow').value) || 0;
+        const unit = document.getElementById('sub_flow_unit').value;
+        const C = parseFloat(document.getElementById('sub_roughness').value) || 150;
+        const F = parseFloat(document.getElementById('sub_outlet_factor').value) || 0.36;
+        const inletP = parseFloat(document.getElementById('lat_inlet_press').value) || 0;
+        
+        const res = calcHydraulics(id_mm, length, flowVal, unit, C, F);
+        
+        document.getElementById('sub_velocity').innerText = res.v.toFixed(2) + " m/s";
+        document.getElementById('sub_head_loss').innerText = res.hf.toFixed(3) + " m";
+        
+        const totalP = inletP + res.hf;
+        document.getElementById('sub_total_pressure').innerText = totalP.toFixed(2) + " m";
+        
+        const mainInput = document.getElementById('sub_inlet_press_link');
+        if(mainInput) {
+            mainInput.value = totalP.toFixed(2);
+            calculateMainline();
+        }
+    }
+
+    // --- CARD 8: MAINLINE LOGIC ---
+    function updateMainOptions() {
+        populatePipeOptions('main_type', 'main_class', 'main_size', updateMainSizeList);
+    }
+    function updateMainSizeList() {
+        populateSizeList('main_type', 'main_class', 'main_size', updateMainID);
+    }
+    function updateMainID() {
+        updatePipeID('main_type', 'main_class', 'main_size', 'main_id', calculateMainline);
+    }
+    function calculateMainline() {
+        const id_mm = parseFloat(document.getElementById('main_id').value) || 0;
+        const length = parseFloat(document.getElementById('main_length').value) || 0;
+        const flowVal = parseFloat(document.getElementById('main_flow').value) || 0;
+        const unit = document.getElementById('main_flow_unit').value;
+        const C = parseFloat(document.getElementById('main_roughness').value) || 150;
+        const inletP = parseFloat(document.getElementById('sub_inlet_press_link').value) || 0;
+        
+        const res = calcHydraulics(id_mm, length, flowVal, unit, C, 1.0);
+        
+        document.getElementById('main_velocity').innerText = res.v.toFixed(2) + " m/s";
+        document.getElementById('main_head_loss').innerText = res.hf.toFixed(3) + " m";
+        
+        const totalP = inletP + res.hf;
+        document.getElementById('main_total_pressure').innerText = totalP.toFixed(2) + " m";
+        
+        const totalHeadInput = document.getElementById('th_main_inlet');
+        if(totalHeadInput) {
+            totalHeadInput.value = totalP.toFixed(2);
+            calculateTotalHead();
+        }
+    }
+
+    // --- CARD 10 LOGIC (Darcy-Weisbach) ---
+    function calculateDarcy() {
+        const id_mm = parseFloat(document.getElementById('dw_id').value) || 0;
+        const length = parseFloat(document.getElementById('dw_length').value) || 0;
+        const flowVal = parseFloat(document.getElementById('dw_flow').value) || 0;
+        const unit = document.getElementById('dw_flow_unit').value;
+        const f = parseFloat(document.getElementById('dw_f').value) || 0.02;
+        const g = 9.81;
+
+        if (id_mm <= 0) return;
+
+        let q_m3s = 0;
+        if (unit === 'lps') q_m3s = flowVal / 1000.0;
+        else if (unit === 'lpm') q_m3s = flowVal / 60000.0;
+        else if (unit === 'm3h') q_m3s = flowVal / 3600.0;
+
+        const id_m = id_mm / 1000.0;
+        const area = Math.PI * Math.pow((id_m / 2.0), 2);
+        const v = (area > 0) ? (q_m3s / area) : 0;
+
+        let hf = 0;
+        if (id_m > 0) {
+            hf = f * (length / id_m) * (Math.pow(v, 2) / (2 * g));
+        }
+
+        document.getElementById('dw_velocity').innerText = v.toFixed(2) + " m/s";
+        document.getElementById('dw_head_loss').innerText = hf.toFixed(3) + " m";
+    }
+
+    // --- CARD 11 LOGIC (Reynolds) ---
+    function updateFluids() {
+        const temp = parseFloat(document.getElementById('re_temp').value) || 20;
+        
+        const T = temp;
+        const rho = 1000 * (1 - (T + 288.9416) / (508929.2 * (T + 68.12963)) * Math.pow(T - 3.9863, 2));
+        
+        const kin_visc_m2s = (1.78 / (1 + 0.0337 * T + 0.000221 * T * T)) * 1e-6;
+        const mu_Pas = kin_visc_m2s * rho;
+        const mu_cP = mu_Pas * 1000;
+
+        document.getElementById('re_density').value = rho.toFixed(1);
+        document.getElementById('re_visc').value = mu_cP.toFixed(3);
+        
+        calculateReynolds();
+    }
+
+    function calculateReynolds() {
+        const id_mm = parseFloat(document.getElementById('re_id').value) || 0;
+        const flowVal = parseFloat(document.getElementById('re_flow').value) || 0;
+        const unit = document.getElementById('re_flow_unit').value;
+        
+        const rho = parseFloat(document.getElementById('re_density').value) || 998.2;
+        const mu_cP = parseFloat(document.getElementById('re_visc').value) || 1.002;
+
+        if (id_mm <= 0) return;
+
+        let q_m3s = 0;
+        if (unit === 'lps') q_m3s = flowVal / 1000.0;
+        else if (unit === 'lpm') q_m3s = flowVal / 60000.0;
+        else if (unit === 'm3h') q_m3s = flowVal / 3600.0;
+
+        const id_m = id_mm / 1000.0;
+        const area = Math.PI * Math.pow((id_m / 2.0), 2);
+        const v = (area > 0) ? (q_m3s / area) : 0;
+        
+        const mu_Pas = mu_cP * 0.001;
+        const Re = (rho * v * id_m) / mu_Pas;
+
+        let type = "-";
+        let color = "#333";
+        
+        if (Re < 2000) {
+            type = "Laminar";
+            color = "#28a745";
+        } else if (Re >= 2000 && Re <= 4000) {
+            type = "Transition";
+            color = "#ffc107";
+        } else {
+            type = "Turbulent";
+            color = "#dc3545";
+        }
+
+        document.getElementById('re_number').innerText = Re.toFixed(0);
+        const typeEl = document.getElementById('re_type');
+        typeEl.innerText = type;
+        typeEl.style.color = color;
+    }
+
+    // --- HELPERS ---
+    function populatePipeOptions(typeId, classId, sizeId, callback) {
+        const type = document.getElementById(typeId).value;
+        const classSelect = document.getElementById(classId);
+        classSelect.innerHTML = "";
+        
+        let classes = [];
+        if (type === 'agri') classes = ["4kg", "6kg"];
+        else if (type === 'upvc') classes = ["sch40", "sch80"];
+        else if (type === 'hdpe') classes = ["pn4", "pn6"];
+        
+        classes.forEach(c => {
+            let label = c.toUpperCase();
+            if(c==='4kg') label = '4 kg/cm²';
+            if(c==='6kg') label = '6 kg/cm²';
+            if(c==='pn4') label = 'PN 4';
+            if(c==='pn6') label = 'PN 6';
+            if(c==='sch40') label = 'Sch 40';
+            if(c==='sch80') label = 'Sch 80';
+            
+            const opt = document.createElement("option");
+            opt.value = c;
+            opt.innerText = label;
+            classSelect.appendChild(opt);
+        });
+        callback();
+    }
+
+    function populateSizeList(typeId, classId, sizeId, callback) {
+        const type = document.getElementById(typeId).value;
+        const cls = document.getElementById(classId).value;
+        const sizeSelect = document.getElementById(sizeId);
+        const data = pipeDB[type][cls];
+        
+        sizeSelect.innerHTML = "";
+        if(data) {
+            Object.keys(data).sort((a,b)=>parseFloat(a)-parseFloat(b)).forEach(size => {
+                const opt = document.createElement("option");
+                opt.value = size;
+                opt.innerText = size + " mm";
+                sizeSelect.appendChild(opt);
+            });
+            if(data["63"]) sizeSelect.value = "63";
+            else if(data["65"]) sizeSelect.value = "65"; 
+        }
+        
+        const customOpt = document.createElement("option");
+        customOpt.value = "custom";
+        customOpt.innerText = "Custom";
+        sizeSelect.appendChild(customOpt);
+        
+        callback();
+    }
+
+    function updatePipeID(typeId, classId, sizeId, idInputId, calcFunc) {
+        const type = document.getElementById(typeId).value;
+        const cls = document.getElementById(classId).value;
+        const size = document.getElementById(sizeId).value;
+        const idInput = document.getElementById(idInputId);
+        
+        if (size === "custom") {
+            idInput.focus();
+        } else {
+            if (pipeDB[type] && pipeDB[type][cls] && pipeDB[type][cls][size]) {
+                idInput.value = pipeDB[type][cls][size];
+            }
+        }
+        calcFunc();
+    }
+
+    function calcHydraulics(id_mm, length, flowVal, unit, C, F) {
+        if (id_mm <= 0) return {v:0, hf:0};
+        
+        let q_lps = 0;
+        if (unit === 'lps') q_lps = flowVal;
+        if (unit === 'lpm') q_lps = flowVal / 60.0;
+        if (unit === 'm3h') q_lps = flowVal / 3.6;
+
+        const q_m3s = q_lps / 1000.0;
+        const id_m = id_mm / 1000.0;
+        const area = Math.PI * Math.pow((id_m / 2.0), 2);
+        const v = (area > 0) ? (q_m3s / area) : 0;
+
+        const K = 1.21e10;
+        const term_q = Math.pow((q_lps / C), 1.852);
+        const term_d = Math.pow(id_mm, -4.87);
+        const hf = F * length * K * term_q * term_d;
+        
+        return {v: v, hf: hf};
+    }
+
+    // ============================================================
+    // BOX 19 - VALVE PIPE SIZING LOGIC
+    // ============================================================
+
+    // Helper: pipe type label for display
+    function pipeTypeLabel(type, cls) {
+        let t = type === 'agri' ? 'Agri PVC' : type === 'upvc' ? 'uPVC' : 'HDPE';
+        let c = cls;
+        if(cls==='4kg') c='4 kg/cm²';
+        else if(cls==='6kg') c='6 kg/cm²';
+        else if(cls==='pn4') c='PN 4';
+        else if(cls==='pn6') c='PN 6';
+        else if(cls==='sch40') c='Sch 40';
+        else if(cls==='sch80') c='Sch 80';
+        return t + ' ' + c;
+    }
+
+    // Get pipe classes for a type
+    function getV19Classes(type) {
+        if(type === 'agri') return [{v:'4kg', l:'4 kg/cm²'},{v:'6kg', l:'6 kg/cm²'}];
+        if(type === 'upvc') return [{v:'sch40', l:'Sch 40'},{v:'sch80', l:'Sch 80'}];
+        if(type === 'hdpe') return [{v:'pn4', l:'PN 4'},{v:'pn6', l:'PN 6'}];
+        return [];
+    }
+
+    // Get pipe sizes for type+class
+    function getV19Sizes(type, cls) {
+        if(pipeDB[type] && pipeDB[type][cls]) {
+            return Object.keys(pipeDB[type][cls]).sort((a,b)=>parseFloat(a)-parseFloat(b));
+        }
+        return [];
+    }
+
+    // Get ID for type+class+size
+    function getV19ID(type, cls, size) {
+        if(size === 'custom') return null;
+        if(pipeDB[type] && pipeDB[type][cls] && pipeDB[type][cls][size]) {
+            return pipeDB[type][cls][size];
+        }
+        return null;
+    }
+
+    let valveCount = 0;
+
+    function addValveRow(defaultIdx) {
+        valveCount++;
+        const idx = valveCount;
+        const tbody = document.getElementById('v19_tbody');
+        const tr = document.createElement('tr');
+        tr.id = 'v19_row_' + idx;
+        tr.dataset.valveIdx = idx;
+
+        // Valve Flow calculation needs box3 values (hidden)
+        const bedS = parseFloat(document.getElementById('bed_spacing').value) || 1;
+        const latN = parseFloat(document.getElementById('laterals_per_bed').value) || 1;
+        const dripS = parseFloat(document.getElementById('dripper_spacing').value) || 1;
+        const dripQ = parseFloat(document.getElementById('dripper_discharge').value) || 0;
+
+        // Default area
+        const defaultArea = 1000;
+
+        tr.innerHTML = `
+            <td class="valve-row-label">Valve ${idx}</td>
+            <td><input type="number" id="v19_area_${idx}" value="${defaultArea}" step="any" oninput="onV19Change(${idx})" style="min-width:70px;"></td>
+            <td>
+                <select id="v19_type_${idx}" onchange="onV19TypeChange(${idx})" style="min-width:90px;">
+                    <option value="agri">Agri PVC</option>
+                    <option value="upvc">uPVC</option>
+                    <option value="hdpe">HDPE</option>
+                </select>
+            </td>
+            <td>
+                <select id="v19_class_${idx}" onchange="onV19ClassChange(${idx})" style="min-width:80px;"></select>
+            </td>
+            <td>
+                <select id="v19_size_${idx}" onchange="onV19SizeChange(${idx})" style="min-width:70px;"></select>
+            </td>
+            <td style="min-width:72px;">
+                <input type="number" id="v19_id_${idx}" step="0.1" placeholder="auto" oninput="onV19IDManual(${idx})" style="min-width:65px; background:#fffde7; border-color:#f9a825;">
+            </td>
+            <td><input type="number" id="v19_len_${idx}" value="50" oninput="onV19Change(${idx})" style="min-width:60px;"></td>
+            <td class="out-cell" id="v19_flow_${idx}">—</td>
+            <td class="out-cell" id="v19_vel_${idx}">—</td>
+            <td class="out-cell" id="v19_hl_${idx}">—</td>
+            <td class="out-cell" id="v19_fs_${idx}">—</td>
+            <td><button class="btn-remove-valve" onclick="removeValveRow(${idx})">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+
+        // Populate class dropdown
+        initV19ClassDropdown(idx, 'agri');
+        calcBox19();
+        layoutCards();
+    }
+
+    function initV19ClassDropdown(idx, type) {
+        const classEl = document.getElementById('v19_class_' + idx);
+        if(!classEl) return;
+        const classes = getV19Classes(type);
+        classEl.innerHTML = '';
+        classes.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.v;
+            opt.innerText = c.l;
+            classEl.appendChild(opt);
+        });
+        initV19SizeDropdown(idx, type, classes[0].v);
+    }
+
+    function initV19SizeDropdown(idx, type, cls) {
+        const sizeEl = document.getElementById('v19_size_' + idx);
+        if(!sizeEl) return;
+        const sizes = getV19Sizes(type, cls);
+        sizeEl.innerHTML = '';
+        sizes.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.innerText = s + ' mm';
+            sizeEl.appendChild(opt);
+        });
+        // Default to 63mm if available
+        if(sizes.includes('63')) sizeEl.value = '63';
+        else if(sizes.includes('65')) sizeEl.value = '65';
+        // Add custom
+        const custom = document.createElement('option');
+        custom.value = 'custom';
+        custom.innerText = 'Custom';
+        sizeEl.appendChild(custom);
+        // Auto-fill ID input
+        v19AutoFillID(idx);
+        calcBox19();
+    }
+
+    // Auto-fill ID field from dropdown selection (unless user has manually edited it)
+    function v19AutoFillID(idx) {
+        const typeEl = document.getElementById('v19_type_' + idx);
+        const classEl = document.getElementById('v19_class_' + idx);
+        const sizeEl = document.getElementById('v19_size_' + idx);
+        const idInput = document.getElementById('v19_id_' + idx);
+        if(!typeEl || !classEl || !sizeEl || !idInput) return;
+        const pType = typeEl.value;
+        const pClass = classEl.value;
+        const pSize = sizeEl.value;
+        if(pSize !== 'custom') {
+            const id = getV19ID(pType, pClass, pSize);
+            if(id) {
+                idInput.value = parseFloat(id.toFixed(1));
+                idInput.style.borderColor = '#81c784';
+                idInput.style.background = '#f1f8e9';
+            }
+        } else {
+            idInput.value = '';
+            idInput.style.borderColor = '#f9a825';
+            idInput.style.background = '#fffde7';
+            idInput.focus();
+        }
+    }
+
+    function onV19IDManual(idx) {
+        // User manually edited ID — highlight as manual
+        const idInput = document.getElementById('v19_id_' + idx);
+        if(idInput) {
+            idInput.style.borderColor = '#f9a825';
+            idInput.style.background = '#fffde7';
+        }
+        calcBox19();
+    }
+
+    function onV19TypeChange(idx) {
+        const type = document.getElementById('v19_type_' + idx).value;
+        initV19ClassDropdown(idx, type);
+    }
+
+    function onV19ClassChange(idx) {
+        const type = document.getElementById('v19_type_' + idx).value;
+        const cls = document.getElementById('v19_class_' + idx).value;
+        initV19SizeDropdown(idx, type, cls);
+    }
+
+    function onV19SizeChange(idx) {
+        v19AutoFillID(idx);
+        calcBox19();
+    }
+
+    function onV19Change(idx) {
+        calcBox19();
+    }
+
+    function removeValveRow(idx) {
+        const tr = document.getElementById('v19_row_' + idx);
+        if(tr) tr.remove();
+        calcBox19();
+        layoutCards();
+    }
+
+    function calcBox19() {
+        const C = parseFloat(document.getElementById('v19_roughness').value) || 150;
+        const F = parseFloat(document.getElementById('v19_outlet_factor').value) || 1.0;
+        const fittingVal = parseInt(document.getElementById('v19_fitting_side').value) || 1;
+
+        const pipeExtraPct = (parseFloat(document.getElementById('v19_pipe_extra_pct').value) || 0) / 100;
+        const fitExtraPct  = (parseFloat(document.getElementById('v19_fit_extra_pct').value)  || 0) / 100;
+        const latExtraPct  = (parseFloat(document.getElementById('v19_lat_extra_pct').value)  || 0) / 100;
+
+        // Box 3 values (hidden but used)
+        const bedS = parseFloat(document.getElementById('bed_spacing').value) || 1;
+        const latN = parseFloat(document.getElementById('laterals_per_bed').value) || 1;
+        const dripS = parseFloat(document.getElementById('dripper_spacing').value) || 1;
+        const dripQ = parseFloat(document.getElementById('dripper_discharge').value) || 0; // LPH
+
+        const avgLatSpacing = bedS / latN; // m
+
+        // Summary maps
+        const pipeSummary = {}; // key => total net length (raw)
+        let totalFittingSets = 0;
+        let totalValveArea = 0;
+
+        const rows = document.querySelectorAll('#v19_tbody tr');
+        rows.forEach(tr => {
+            const idx = tr.dataset.valveIdx;
+            if(!idx) return;
+
+            const areaEl = document.getElementById('v19_area_' + idx);
+            const typeEl = document.getElementById('v19_type_' + idx);
+            const classEl = document.getElementById('v19_class_' + idx);
+            const sizeEl = document.getElementById('v19_size_' + idx);
+            const idInput = document.getElementById('v19_id_' + idx);
+            const lenEl = document.getElementById('v19_len_' + idx);
+
+            if(!areaEl || !typeEl || !classEl || !sizeEl || !lenEl) return;
+
+            const valveArea = parseFloat(areaEl.value) || 0;
+            const pType = typeEl.value;
+            const pClass = classEl.value;
+            const pSize = sizeEl.value;
+            const pLen = parseFloat(lenEl.value) || 0;
+
+            // Get ID — prefer user-edited input, fallback to dropdown lookup
+            let id_mm = 0;
+            const idInputVal = idInput ? parseFloat(idInput.value) : NaN;
+            if(!isNaN(idInputVal) && idInputVal > 0) {
+                id_mm = idInputVal;
+            } else if(pSize !== 'custom') {
+                id_mm = getV19ID(pType, pClass, pSize) || 0;
+                // Also update the input box if empty
+                if(idInput && (!idInput.value || idInput.value === '')) {
+                    idInput.value = id_mm > 0 ? parseFloat(id_mm.toFixed(1)) : '';
+                }
+            }
+
+            // Valve Flow (m³/hr)
+            let valveFlow_m3h = 0;
+            if(avgLatSpacing > 0 && dripS > 0) {
+                const numDrippers = valveArea / (avgLatSpacing * dripS);
+                const flowLPH = numDrippers * dripQ;
+                valveFlow_m3h = flowLPH / 1000.0;
+            }
+
+            // Hydraulics
+            let vel = 0, hf = 0;
+            if(id_mm > 0 && valveFlow_m3h > 0) {
+                const res = calcHydraulics(id_mm, pLen, valveFlow_m3h, 'm3h', C, F);
+                vel = res.v;
+                hf = res.hf;
+            }
+
+            // Fitting Sets = (pLen / avgLatSpacing) * fittingVal
+            let fittingSets = 0;
+            if(avgLatSpacing > 0) {
+                fittingSets = (pLen / avgLatSpacing) * fittingVal;
+            }
+
+            // Update cells
+            document.getElementById('v19_flow_' + idx).innerText = valveFlow_m3h.toFixed(3);
+
+            const velCell = document.getElementById('v19_vel_' + idx);
+            velCell.innerText = vel.toFixed(2);
+            velCell.className = 'out-cell' + (vel > 2.5 ? ' warn' : '');
+
+            const hlCell = document.getElementById('v19_hl_' + idx);
+            hlCell.innerText = hf.toFixed(3);
+
+            document.getElementById('v19_fs_' + idx).innerText = fittingSets.toFixed(1);
+
+            // Summary aggregation — build key for summary
+            if(pSize !== 'custom' && pLen > 0) {
+                let clsLabel = pClass;
+                if(pClass==='4kg') clsLabel='4 kg/cm²';
+                else if(pClass==='6kg') clsLabel='6 kg/cm²';
+                else if(pClass==='pn4') clsLabel='PN 4';
+                else if(pClass==='pn6') clsLabel='PN 6';
+                else if(pClass==='sch40') clsLabel='Sch 40';
+                else if(pClass==='sch80') clsLabel='Sch 80';
+                let typeLabel = pType === 'agri' ? 'Agri PVC' : pType === 'upvc' ? 'uPVC' : 'HDPE';
+                const key = `${pSize} mm (${clsLabel}) – ${typeLabel}`;
+                pipeSummary[key] = (pipeSummary[key] || 0) + pLen;
+            }
+            totalFittingSets += fittingSets;
+            totalValveArea += valveArea;
+        });
+
+        // Apply extra material % to fittings
+        const fittingsWithExtra = totalFittingSets * (1 + fitExtraPct);
+
+        const pipeSumEl = document.getElementById('v19_pipe_summary');
+        const fitSumEl = document.getElementById('v19_fitting_summary');
+        const areaLatEl = document.getElementById('v19_area_lateral_summary');
+
+        if(Object.keys(pipeSummary).length === 0) {
+            pipeSumEl.innerHTML = '<span style="color:#aaa;font-size:0.82rem;">No data</span>';
+        } else {
+            pipeSumEl.innerHTML = Object.entries(pipeSummary)
+                .sort((a,b) => a[0].localeCompare(b[0]))
+                .map(([k, v]) => {
+                    const withExtra = v * (1 + pipeExtraPct);
+                    const rounded = Math.ceil(withExtra / 6) * 6;
+                    const pipes = rounded / 6;
+                    return `<div class="summary-item">
+                        <span class="s-key">${k}</span>
+                        <span class="s-val">${rounded.toFixed(0)} m <span style="font-size:0.72rem;color:#555;">(${pipes.toFixed(0)} pipes × 6m)</span></span>
+                    </div>`;
+                })
+                .join('');
+        }
+
+        fitSumEl.innerHTML = `<div class="summary-item"><span class="s-key">Total Fitting Sets (net)</span><span class="s-val">${totalFittingSets.toFixed(1)} nos</span></div>
+        <div class="summary-item"><span class="s-key">With Extra ${(fitExtraPct*100).toFixed(1)}%</span><span class="s-val" style="color:#e65100;">${fittingsWithExtra.toFixed(1)} nos</span></div>`;
+
+        const totalLatLen = avgLatSpacing > 0 ? (totalValveArea / avgLatSpacing) : 0;
+        const latWithExtra = totalLatLen * (1 + latExtraPct);
+        const latRounded = Math.ceil(latWithExtra / 25) * 25;
+
+        areaLatEl.innerHTML = `
+            <div class="summary-item"><span class="s-key">Total Valve Area</span><span class="s-val">${totalValveArea.toFixed(1)} m²</span></div>
+            <div class="summary-item"><span class="s-key">Total Lateral Length (net)</span><span class="s-val">${totalLatLen.toFixed(1)} m</span></div>
+            <div class="summary-item"><span class="s-key">With Extra ${(latExtraPct*100).toFixed(1)}% → rounded ×25m</span><span class="s-val" style="color:#e65100;">${latRounded.toFixed(0)} m</span></div>
+        `;
+    }
+
+    // --- JS MASONRY LAYOUT ---
+    function layoutCards() {
+        const container = document.querySelector('.app-container');
+        const cards = document.querySelectorAll('.card');
+        const containerWidth = container.offsetWidth;
+        
+        if(window.innerWidth <= 768) {
+            container.style.height = 'auto';
+            return;
+        }
+
+        // Card 19 is wide (780px), others are 350px
+        const gap = 20;
+        const normalWidth = 350;
+        const wideWidth = 780;
+
+        // Two-pass: first place normal cards in columns, then wide cards at bottom
+        let colCount = Math.floor((containerWidth + gap) / (normalWidth + gap));
+        colCount = Math.max(1, colCount);
+
+        const gridWidth = colCount * normalWidth + (colCount - 1) * gap;
+        const startX = (containerWidth - gridWidth) / 2;
+
+        const colHeights = new Array(colCount).fill(0);
+
+        cards.forEach((card) => {
+            const isWide = card.id === 'card-19';
+
+            if(!isWide) {
+                card.style.width = normalWidth + 'px';
+                const colIndex = getShortestCol(colHeights);
+                card.style.top = colHeights[colIndex] + 'px';
+                card.style.left = startX + colIndex * (normalWidth + gap) + 'px';
+                colHeights[colIndex] += card.offsetHeight + gap;
+            }
+        });
+
+        // Place wide card (card-19) below all columns — full width
+        const maxColH = Math.max(...colHeights);
+        const wideCard = document.getElementById('card-19');
+        if(wideCard) {
+            const actualWide = containerWidth - 40;
+            wideCard.style.width = actualWide + 'px';
+            wideCard.style.top = maxColH + 'px';
+            wideCard.style.left = '20px';
+        }
+
+        const wideH = wideCard ? wideCard.offsetHeight : 0;
+        container.style.height = (maxColH + wideH + gap) + 'px';
+    }
+
+    function getShortestCol(colHeights) {
+        let minH = colHeights[0], minIdx = 0;
+        colHeights.forEach((h, i) => { if(h < minH) { minH = h; minIdx = i; } });
+        return minIdx;
+    }
+
+    window.addEventListener('resize', layoutCards);
+
+    window.onload = function() {
+        updateInterface();
+        calculateSystemFlow();
+        calculateAvailableFlow();
+        calculateRequiredHP();
+        
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+            if (card.id.startsWith('card-1') || card.id.startsWith('card-2') || card.id.startsWith('card-3') || card.id.startsWith('card-4') || card.id.startsWith('card-5') || card.id.startsWith('card-7') || card.id.startsWith('card-8') || card.id.startsWith('card-9') || card.id.startsWith('card-10') || card.id.startsWith('card-15') || card.id.startsWith('card-16') || card.id.startsWith('card-17')) return; 
+            const select = card.querySelector('.nominal-dia');
+            if(select) updateID(select);
+        });
+
+        updateSubmainOptions();
+        updateMainOptions();
+        
+        calculateDarcy();
+        updateFluids();
+        calcVelocity();
+        calculateTotalHead();
+        
+        const latCard = document.getElementById('card-6');
+        if(latCard) calculate(latCard.querySelector('.id-mm'));
+        
+        initPeakData();
+        calculateFogging();
+
+        // Init Box 19 with 4 default valves
+        addValveRow();
+        addValveRow();
+        addValveRow();
+        addValveRow();
+        
+        setTimeout(layoutCards, 200);
+    };
+</script>
+</body>
+</html>
